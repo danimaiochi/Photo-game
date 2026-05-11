@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manual Mode Challenge</title>
+    <style>
+        :root {
+            --bg-color: #1a1a1a;
+            --text-color: #e0e0e0;
+            --accent: #007bff;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+
+        #game-container {
+            max-width: 600px;
+            width: 100%;
+            background: #2d2d2d;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+
+        /* The Viewfinder */
+        #viewfinder {
+            position: relative;
+            width: 100%;
+            height: 300px;
+            background-color: #000;
+            border-radius: 8px;
+            overflow: hidden;
+            margin-bottom: 20px;
+            border: 4px solid #444;
+        }
+
+        #subject {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: filter 0.2s;
+            /* Placeholder image of a flower/portrait style */
+            background-image: url('https://images.unsplash.com/photo-1523906834658-6e24ef2386f9?auto=format&fit=crop&w=600&q=80');
+            background-size: cover;
+            background-position: center;
+        }
+
+        /* Grain Overlay */
+        #noise {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            opacity: 0;
+            pointer-events: none;
+            background-image: url('https://replicate.delivery/mgxm/8d576a8d-b65a-40a2-9b2d-f952136e053a/out.png'); /* Texture */
+            mix-blend-mode: overlay;
+        }
+
+        .controls {
+            display: grid;
+            gap: 15px;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        label {
+            margin-bottom: 5px;
+            font-weight: bold;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        input[type=range] {
+            width: 100%;
+            cursor: pointer;
+        }
+
+        #brief {
+            background: #3d3d3d;
+            padding: 15px;
+            border-left: 4px solid var(--accent);
+            margin-bottom: 20px;
+            font-style: italic;
+        }
+
+        button {
+            background-color: var(--accent);
+            color: white;
+            border: none;
+            padding: 12px;
+            border-radius: 6px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 10px;
+            width: 100%;
+        }
+
+        button:hover { background-color: #0056b3; }
+
+        #feedback {
+            margin-top: 15px;
+            text-align: center;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+    <h2>📸 Manual Mode Challenge</h2>
+    
+    <div id="game-container">
+        <div id="brief">
+            <strong>Client Brief:</strong> <span id="target-text">"I want a moody, dark portrait with a very blurry background. Keep it clean (no grain!)"</span>
+        </div>
+
+        <div id="viewfinder">
+            <div id="subject"></div>
+            <div id="noise"></div>
+        </div>
+
+        <div class="controls">
+            <div class="control-group">
+                <label>Aperture (f-stop): <span id="v-aperture">f/8</span></label>
+                <input type="range" id="aperture" min="1.8" max="22" step="0.1" value="8">
+                <small>Controls Depth of Field & Light</small>
+            </div>
+
+            <div class="control-group">
+                <label>Shutter Speed: <span id="v-shutter">1/125</span></label>
+                <input type="range" id="shutter" min="1" max="1000" step="10" value="125">
+                <small>Controls Light (simulated motion blur coming soon!)</small>
+            </div>
+
+            <div class="control-group">
+                <label>ISO: <span id="v-iso">100</span></label>
+                <input type="range" id="iso" min="100" max="6400" step="100" value="100">
+                <small>Controls Sensitivity & Noise (Grain)</small>
+            </div>
+
+            <button onclick="checkShot()">TAKE PHOTO</button>
+            <div id="feedback"></div>
+        </div>
+    </div>
+
+    <script>
+        const apertureInput = document.getElementById('aperture');
+        const shutterInput = document.getElementById('shutter');
+        const isoInput = document.getElementById('iso');
+        const subject = document.getElementById('subject');
+        const noise = document.getElementById('noise');
+        const feedback = document.getElementById('feedback');
+
+        // Logic to update the "Live View"
+        function updateViewfinder() {
+            const apt = parseFloat(apertureInput.value);
+            const shf = parseFloat(shutterInput.value);
+            const iso = parseFloat(isoInput.value);
+
+            document.getElementById('v-aperture').innerText = `f/${apt}`;
+            document.getElementById('v-shutter').innerText = `1/${shf}`;
+            document.getElementById('v-iso').innerText = iso;
+
+            // 1. Calculate Bokeh (Blur) based on Aperture
+            // Low f-stop = High Blur
+            const blurVal = Math.max(0, (22 - apt) / 2);
+            
+            // 2. Calculate Exposure (The Triangle)
+            // This is a simplified math model: 
+            // More ISO = brighter, More Shutter = darker, Lower f-stop = brighter
+            let exposure = (iso / 100) * (1 / apt) * (500 / shf);
+            const brightness = exposure * 50; // scaling for visual effect
+
+            // 3. Calculate Grain
+            const grainOpacity = (iso - 100) / 6400;
+
+            // Apply to CSS
+            subject.style.filter = `blur(${blurVal}px) brightness(${brightness}%)`;
+            noise.style.opacity = grainOpacity;
+        }
+
+        [apertureInput, shutterInput, isoInput].forEach(input => {
+            input.addEventListener('input', updateViewfinder);
+        });
+
+        function checkShot() {
+            const apt = parseFloat(apertureInput.value);
+            const iso = parseFloat(isoInput.value);
+            const shf = parseFloat(shutterInput.value);
+            
+            let exposure = (iso / 100) * (1 / apt) * (500 / shf);
+            const brightness = exposure * 50;
+
+            // Success Logic for Level 1: Moody (darkish), Blur background (low f-stop), Clean (low ISO)
+            if (brightness > 30 && brightness < 70 && apt < 4 && iso < 400) {
+                feedback.innerHTML = "✅ PERFECT! You nailed the moody bokeh look.";
+                feedback.style.color = "#4CAF50";
+            } else if (brightness >= 100) {
+                feedback.innerHTML = "❌ OVEREXPOSED! Too much light. Speed up shutter or close aperture.";
+                feedback.style.color = "#ff4444";
+            } else if (brightness <= 20) {
+                feedback.innerHTML = "❌ UNDEREXPOSED! Too dark. Slower shutter or wider aperture.";
+                feedback.style.color = "#ff4444";
+            } else if (apt > 5) {
+                feedback.innerHTML = "❌ BACKGROUND TOO SHARP! The client wanted it blurry (lower f-stop).";
+                feedback.style.color = "#ffbb33";
+            } else if (iso > 800) {
+                feedback.innerHTML = "❌ TOO MUCH NOISE! The client wanted it clean (lower ISO).";
+                feedback.style.color = "#ffbb33";
+            }
+        }
+
+        // Initialize
+        updateViewfinder();
+    </script>
+</body>
+</html>
